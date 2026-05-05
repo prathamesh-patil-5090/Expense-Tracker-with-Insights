@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../index.js";
+import { evaluateBudgetAlerts } from "../services/budgetAlerts.js";
 
 const router = Router();
 
@@ -57,6 +58,7 @@ function buildOrderBy(sortBy: unknown) {
 function expenseSelect() {
   return {
     id: true,
+    userId: true,
     amount: true,
     description: true,
     date: true,
@@ -308,6 +310,8 @@ router.post("/", async (req: Request, res: Response) => {
       select: expenseSelect(),
     });
 
+    await evaluateBudgetAlerts(userId, expense.date);
+
     res.status(201).json(expense);
   } catch (error) {
     console.error("Error creating expense:", error);
@@ -356,6 +360,8 @@ router.put("/:id", async (req: Request, res: Response) => {
       select: expenseSelect(),
     });
 
+    await evaluateBudgetAlerts(expense.userId, expense.date);
+
     res.json(expense);
   } catch (error: any) {
     if (error.code === "P2025") {
@@ -371,9 +377,23 @@ router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        date: true,
+      },
+    });
+
+    if (!expense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
     await prisma.expense.delete({
       where: { id },
     });
+
+    await evaluateBudgetAlerts(expense.userId, expense.date);
 
     res.json({ message: "Expense deleted successfully" });
   } catch (error: any) {

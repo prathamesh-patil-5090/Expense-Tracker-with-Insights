@@ -5,7 +5,9 @@ import { PrismaClient } from "@prisma/client";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
+import alertsRoutes from "./routes/alerts.js";
 import exportRoutes from "./routes/exports.js";
+import settingsRoutes from "./routes/settings.js";
 import userRoutes from "./routes/users.js";
 import categoryRoutes from "./routes/categories.js";
 import expenseRoutes from "./routes/expenses.js";
@@ -61,6 +63,8 @@ app.get("/health", (req: Request, res: Response) => {
 // Authentication routes (register, login, etc.)
 app.use("/api/auth", authRoutes);
 app.use("/api/exports", authenticateToken);
+app.use("/api/alerts", authenticateToken);
+app.use("/api/settings", authenticateToken);
 
 // ============================================================================
 // PROTECTED ROUTES (Authentication required)
@@ -73,6 +77,8 @@ app.use("/api/expenses", authenticateToken, verifyResourceOwnership);
 
 // API Routes
 app.use("/api/exports", exportRoutes);
+app.use("/api/alerts", alertsRoutes);
+app.use("/api/settings", settingsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/expenses", expenseRoutes);

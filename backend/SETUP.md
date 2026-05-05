@@ -74,7 +74,33 @@ Creates sample data:
 - 5-7 categories per user
 - 9 sample expenses
 
-### 6. Start Development Server
+### 6. Configure Budget Alerts
+
+Users can configure overspending thresholds through the authenticated settings endpoints:
+
+```bash
+# Read current settings
+GET /api/settings/budget
+
+# Update thresholds
+PUT /api/settings/budget
+{
+  "dailyBudgetLimit": 50,
+  "monthlyBudgetLimit": 1200,
+  "budgetAlertsEnabled": true
+}
+```
+
+When expense data changes, the backend evaluates daily and monthly spend and creates alert records if the limits are exceeded. Alerts can be shown in the UI with:
+
+```bash
+GET /api/alerts
+PATCH /api/alerts/:id/read
+```
+
+If SMTP settings are configured, the same alert is sent by email. Otherwise the message is logged for development use.
+
+### 7. Start Development Server
 ```bash
 npm run dev
 ```
