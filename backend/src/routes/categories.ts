@@ -87,10 +87,7 @@ router.post("/", validateUser, async (req: Request, res: Response) => {
     const existing = await prisma.category.findFirst({
       where: {
         userId,
-        name: {
-          equals: name,
-          mode: "insensitive",
-        },
+        name: name,
       },
     });
 

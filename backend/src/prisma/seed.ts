@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../utils/password.js";
 
 const prisma = new PrismaClient();
 
@@ -8,13 +9,20 @@ async function main() {
   // Clean up existing data
   await prisma.expense.deleteMany();
   await prisma.category.deleteMany();
+  await prisma.session.deleteMany();
   await prisma.user.deleteMany();
 
-  // Create users
+  // Create users with hashed passwords
+  const password1 = await hashPassword("SecurePassword123!");
+  const password2 = await hashPassword("AnotherPassword456@");
+
   const user1 = await prisma.user.create({
     data: {
       email: "john.doe@example.com",
       name: "John Doe",
+      passwordHash: password1,
+      role: "USER",
+      emailVerified: true,
     },
   });
 
@@ -22,10 +30,29 @@ async function main() {
     data: {
       email: "jane.smith@example.com",
       name: "Jane Smith",
+      passwordHash: password2,
+      role: "USER",
+      emailVerified: true,
     },
   });
 
-  console.log("✅ Created users:", [user1.id, user2.id]);
+  // Create admin user
+  const adminPassword = await hashPassword("AdminPassword789#");
+  const adminUser = await prisma.user.create({
+    data: {
+      email: "admin@example.com",
+      name: "Admin User",
+      passwordHash: adminPassword,
+      role: "ADMIN",
+      emailVerified: true,
+    },
+  });
+
+  console.log("✅ Created users:", [user1.id, user2.id, adminUser.id]);
+  console.log("📝 Test credentials:");
+  console.log(`   User 1: john.doe@example.com / SecurePassword123!`);
+  console.log(`   User 2: jane.smith@example.com / AnotherPassword456@`);
+  console.log(`   Admin: admin@example.com / AdminPassword789#`);
 
   // Create categories for user1
   const groceryCategory = await prisma.category.create({
@@ -201,7 +228,13 @@ async function main() {
 
   console.log("✅ Created", expenses.length, "sample expenses");
 
-  console.log("🎉 Database seeded successfully!");
+  console.log("\n🎉 Database seeded successfully!");
+  console.log("\n📚 API Authentication Documentation:");
+  console.log("   - Register: POST /api/auth/register");
+  console.log("   - Login: POST /api/auth/login");
+  console.log("   - Refresh Token: POST /api/auth/refresh");
+  console.log("   - Get Profile: GET /api/auth/me (requires token)");
+  console.log("   - Logout: POST /api/auth/logout (requires token)");
 }
 
 main()

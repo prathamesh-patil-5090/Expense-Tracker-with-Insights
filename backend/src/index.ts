@@ -4,9 +4,13 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 
 // Import routes
+import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import categoryRoutes from "./routes/categories.js";
 import expenseRoutes from "./routes/expenses.js";
+
+// Import middleware
+import { authenticateToken, verifyResourceOwnership } from "./middleware/auth.js";
 
 dotenv.config({ path: ".env.local" });
 
@@ -34,6 +38,22 @@ app.get("/health", (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// ============================================================================
+// PUBLIC ROUTES (No authentication required)
+// ============================================================================
+
+// Authentication routes (register, login, etc.)
+app.use("/api/auth", authRoutes);
+
+// ============================================================================
+// PROTECTED ROUTES (Authentication required)
+// ============================================================================
+
+// Apply authentication middleware to all routes below this point
+app.use("/api/users", authenticateToken);
+app.use("/api/categories", authenticateToken, verifyResourceOwnership);
+app.use("/api/expenses", authenticateToken, verifyResourceOwnership);
 
 // API Routes
 app.use("/api/users", userRoutes);

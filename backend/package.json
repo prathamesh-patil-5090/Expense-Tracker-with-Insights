@@ -13,23 +13,32 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx src/prisma/seed.ts"
   },
-  "keywords": ["expense", "tracker", "express", "prisma"],
+  "keywords": [
+    "expense",
+    "tracker",
+    "express",
+    "prisma"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.8.0",
-    "express": "^4.18.2",
+    "@prisma/client": "^5.0.0",
+    "bcrypt": "^5.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.1"
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.10.6",
-    "@types/uuid": "^9.0.7",
-    "typescript": "^5.3.3",
-    "tsx": "^4.7.0",
-    "@prisma/cli": "^5.8.0",
-    "prisma": "^5.8.0"
+    "@types/bcrypt": "^5.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.17",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "prisma": "^5.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }

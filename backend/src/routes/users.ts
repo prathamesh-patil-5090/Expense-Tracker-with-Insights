@@ -49,10 +49,10 @@ router.get("/:id", async (req: Request, res: Response) => {
 // CREATE new user
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { email, name } = req.body;
+    const { email, name, password } = req.body;
 
-    if (!email || !name) {
-      return res.status(400).json({ error: "Email and name are required" });
+    if (!email || !name || !password) {
+      return res.status(400).json({ error: "Email, name, and password are required" });
     }
 
     // Check if user already exists
@@ -64,10 +64,15 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(409).json({ error: "User with this email already exists" });
     }
 
+    // Hash the password
+    const { hashPassword } = await import("../utils/password.js");
+    const passwordHash = await hashPassword(password);
+
     const user = await prisma.user.create({
       data: {
         email,
         name,
+        passwordHash,
       },
     });
 

@@ -10,19 +10,55 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// Users table - stores user account information
+// Users table - stores user account information with authentication
 model User {
-    id        String   @id @default(cuid())
-    email     String   @unique
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    id                     String   @id @default(cuid())
+    email                  String   @unique
+    name                   String
+    passwordHash           String   // Bcrypt hashed password
+    role                   String   @default("USER") // USER, ADMIN
+    emailVerified          Boolean  @default(false)
+    emailVerificationToken String?  // Token for email verification
+    
+    // Password reset
+    resetTokenHash         String?  // Hashed reset token
+    resetTokenExpires      DateTime? // When reset token expires
+    
+    // Session management
+    lastLoginAt            DateTime?
+    lastLogoutAt           DateTime?
+    
+    createdAt              DateTime @default(now())
+    updatedAt              DateTime @updatedAt
 
     // Relations
     categories Category[]
     expenses   Expense[]
+    sessions   Session[]
 
     @@index([email])
+}
+
+// Sessions table - stores active user sessions
+model Session {
+    id            String   @id @default(cuid())
+    userId        String
+    user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    
+    token         String   @unique // JWT token
+    expiresAt     DateTime // Token expiration time
+    
+    // Additional session info
+    ipAddress     String?
+    userAgent     String?
+    isActive      Boolean  @default(true)
+    
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    @@index([userId])
+    @@index([token])
+    @@index([expiresAt])
 }
 
 // Categories table - stores expense categories
