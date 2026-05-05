@@ -1,445 +1,670 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Expense Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg: #f4efe7;
-      --panel: #fffaf3;
-      --panel-2: #f8f1e7;
-      --text: #221b14;
-      --muted: #6d6256;
-      --accent: #0f766e;
-      --accent-2: #d97706;
-      --danger: #b91c1c;
-      --border: rgba(34, 27, 20, 0.1);
-      --shadow: 0 18px 50px rgba(40, 28, 14, 0.08);
-      --radius: 20px;
-    }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Expense Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #f4efe7;
+            --panel: #fffaf3;
+            --panel-2: #f8f1e7;
+            --text: #221b14;
+            --muted: #6d6256;
+            --accent: #0f766e;
+            --accent-2: #d97706;
+            --danger: #b91c1c;
+            --border: rgba(34, 27, 20, 0.1);
+            --shadow: 0 18px 50px rgba(40, 28, 14, 0.08);
+            --radius: 20px;
+        }
 
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 35%),
-        radial-gradient(circle at top right, rgba(217, 119, 6, 0.12), transparent 32%),
-        var(--bg);
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    a { color: inherit; }
-    .shell {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 24px;
-    }
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 35%),
+                radial-gradient(circle at top right, rgba(217, 119, 6, 0.12), transparent 32%),
+                var(--bg);
+        }
 
-    .hero {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 16px;
-      align-items: stretch;
-      margin-bottom: 20px;
-    }
+        a {
+            color: inherit;
+        }
 
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
+        .shell {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px;
+        }
 
-    .card.pad { padding: 20px; }
-    .hero-copy h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.02; }
-    .hero-copy p { margin: 0; color: var(--muted); max-width: 58ch; }
+        .hero {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 16px;
+            align-items: stretch;
+            margin-bottom: 20px;
+        }
 
-    .login-box { padding: 20px; display: grid; gap: 12px; }
-    .login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
-    input, select, button, textarea {
-      font: inherit;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: white;
-      color: var(--text);
-      padding: 12px 14px;
-    }
-    button {
-      cursor: pointer;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), #115e59);
-      color: white;
-      border: none;
-    }
-    button.secondary {
-      background: white;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
 
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: end;
-      margin: 18px 0;
-    }
-    .toolbar > * { min-width: 160px; }
+        .card.pad {
+            padding: 20px;
+        }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 16px;
-    }
+        .hero-copy h1 {
+            margin: 0 0 10px;
+            font-size: clamp(2rem, 4vw, 3.4rem);
+            line-height: 1.02;
+        }
 
-    .stat { grid-column: span 3; padding: 18px; }
-    .stat .label { color: var(--muted); font-size: 0.9rem; }
-    .stat .value { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; margin-top: 8px; }
-    .stat .delta { margin-top: 8px; color: var(--accent); font-size: 0.92rem; }
+        .hero-copy p {
+            margin: 0;
+            color: var(--muted);
+            max-width: 58ch;
+        }
 
-    .wide { grid-column: span 7; }
-    .side { grid-column: span 5; }
-    .panel { padding: 18px; }
-    .panel h2 { margin: 0 0 12px; font-size: 1.1rem; }
-    .panel p.sub { margin: -4px 0 14px; color: var(--muted); }
+        .login-box {
+            padding: 20px;
+            display: grid;
+            gap: 12px;
+        }
 
-    .insight-list, .alert-list, .expense-list { display: grid; gap: 10px; }
-    .row {
-      padding: 12px 14px;
-      background: var(--panel-2);
-      border-radius: 16px;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-    .row small { color: var(--muted); display: block; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      background: rgba(15, 118, 110, 0.12);
-      color: var(--accent);
-    }
-    .tag.danger { background: rgba(185, 28, 28, 0.12); color: var(--danger); }
+        .login-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
 
-    .hidden { display: none !important; }
-    .muted { color: var(--muted); }
-    canvas { width: 100% !important; height: 320px !important; }
+        label {
+            display: grid;
+            gap: 6px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
 
-    .loading { opacity: 0.7; pointer-events: none; }
+        input,
+        select,
+        button,
+        textarea {
+            font: inherit;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text);
+            padding: 12px 14px;
+        }
 
-    @media (max-width: 1024px) {
-      .hero, .wide, .side, .stat { grid-column: span 12; }
-    }
+        button {
+            cursor: pointer;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #115e59);
+            color: white;
+            border: none;
+        }
 
-    @media (max-width: 720px) {
-      .shell { padding: 14px; }
-      .login-grid { grid-template-columns: 1fr; }
-      .toolbar > * { min-width: 100%; }
-      .row { flex-direction: column; align-items: flex-start; }
-    }
-  </style>
+        button.secondary {
+            background: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: end;
+            margin: 18px 0;
+        }
+
+        .toolbar>* {
+            min-width: 160px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+
+        .stat {
+            grid-column: span 3;
+            padding: 18px;
+        }
+
+        .stat .label {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .stat .value {
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            font-weight: 800;
+            margin-top: 8px;
+        }
+
+        .stat .delta {
+            margin-top: 8px;
+            color: var(--accent);
+            font-size: 0.92rem;
+        }
+
+        .wide {
+            grid-column: span 7;
+        }
+
+        .side {
+            grid-column: span 5;
+        }
+
+        .panel {
+            padding: 18px;
+        }
+
+        .panel h2 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+        }
+
+        .panel p.sub {
+            margin: -4px 0 14px;
+            color: var(--muted);
+        }
+
+        .insight-list,
+        .alert-list,
+        .expense-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .row {
+            padding: 12px 14px;
+            background: var(--panel-2);
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .row small {
+            color: var(--muted);
+            display: block;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--accent);
+        }
+
+        .tag.danger {
+            background: rgba(185, 28, 28, 0.12);
+            color: var(--danger);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 320px !important;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        @media (max-width: 1024px) {
+
+            .hero,
+            .wide,
+            .side,
+            .stat {
+                grid-column: span 12;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .shell {
+                padding: 14px;
+            }
+
+            .login-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar>* {
+                min-width: 100%;
+            }
+
+            .row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
 </head>
+
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="card pad hero-copy">
-        <h1>Expense dashboard</h1>
-        <p>View spend totals, category mix, recent insights, and overspending alerts in a single responsive screen. The dashboard uses aggregated API calls so it stays quick even with large datasets.</p>
-      </div>
+    <main class="shell">
+        <section class="hero">
+            <div class="card pad hero-copy">
+                <h1>Expense dashboard</h1>
+                <p>View spend totals, category mix, recent insights, and overspending alerts in a single responsive
+                    screen. The dashboard uses aggregated API calls so it stays quick even with large datasets.</p>
+            </div>
 
-      <div class="card login-box" id="loginCard">
-        <strong>Sign in</strong>
-        <div class="login-grid">
-          <label>Email
-            <input id="email" type="email" value="john.doe@example.com" />
-          </label>
-          <label>Password
-            <input id="password" type="password" value="SecurePassword123!" />
-          </label>
-        </div>
-        <button id="loginBtn">Load dashboard</button>
-        <p class="muted" style="margin:0;font-size:0.9rem;">Use seeded credentials or your own account. Token is stored in localStorage for this simple review build.</p>
-      </div>
-    </section>
+            <div class="card login-box" id="loginCard">
+                <strong>Sign in</strong>
+                <div class="login-grid">
+                    <label>Email
+                        <input id="email" type="email" value="john.doe@example.com" />
+                    </label>
+                    <label>Password
+                        <input id="password" type="password" value="SecurePassword123!" />
+                    </label>
+                </div>
+                <button id="loginBtn">Load dashboard</button>
+                <p class="muted" style="margin:0;font-size:0.9rem;">Use seeded credentials or your own account. Token is
+                    stored in localStorage for this simple review build.</p>
+            </div>
+        </section>
 
-    <section id="app" class="hidden">
-      <div class="toolbar card pad">
-        <label>Start date
-          <input id="startDate" type="date" />
-        </label>
-        <label>End date
-          <input id="endDate" type="date" />
-        </label>
-        <label>Category
-          <select id="categoryFilter">
-            <option value="">All categories</option>
-          </select>
-        </label>
-        <label>Budget daily
-          <input id="dailyBudget" type="number" min="0" step="0.01" placeholder="Daily threshold" />
-        </label>
-        <label>Budget monthly
-          <input id="monthlyBudget" type="number" min="0" step="0.01" placeholder="Monthly threshold" />
-        </label>
-        <button id="applyFilters">Apply filters</button>
-        <button id="saveBudget" class="secondary">Save budget</button>
-        <button id="refreshBtn" class="secondary">Refresh</button>
-        <button id="logoutBtn" class="secondary">Logout</button>
-      </div>
+        <section id="app" class="hidden">
+            <div class="card pad" id="expenseFormSection" style="margin-bottom: 20px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0;">New Expense</h2>
+                    <button class="secondary" id="closeFormBtn" style="width: auto; padding: 8px 16px;">Close</button>
+                </div>
+                <form id="expenseForm" style="display: grid; gap: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <label>Amount *
+                            <input id="expenseAmount" type="number" step="0.01" min="0" placeholder="0.00" required />
+                        </label>
+                        <label>Date *
+                            <input id="expenseDate" type="date" required />
+                        </label>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                        <label>Category *
+                            <select id="expenseCategory" required>
+                                <option value="">Select a category</option>
+                            </select>
+                        </label>
+                        <label style="display: flex; align-items: flex-end;">
+                            <button type="button" id="newCategoryBtn" class="secondary" style="width: 100%; padding: 12px 14px; font-weight: 700;">+ Category</button>
+                        </label>
+                    </div>
+                    <label>Notes
+                        <textarea id="expenseNotes" placeholder="Optional notes..." style="resize: vertical; min-height: 80px; font-family: inherit;"></textarea>
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" id="submitExpense" style="flex: 1;">Create Expense</button>
+                        <button type="reset" class="secondary" style="flex: 0.5;">Clear</button>
+                    </div>
+                    <div id="formMessage" style="padding: 12px 14px; border-radius: 14px; display: none; font-size: 0.95rem;"></div>
+                </form>
+            </div>
 
-      <section class="grid" id="metrics">
-        <div class="card stat"><div class="label">Total Expenses</div><div class="value" id="totalExpenses">-</div><div class="delta" id="periodText">Loading…</div></div>
-        <div class="card stat"><div class="label">Total Spend</div><div class="value" id="totalSpend">-</div><div class="delta">Current filtered period</div></div>
-        <div class="card stat"><div class="label">Avg Expense</div><div class="value" id="avgExpense">-</div><div class="delta">Per transaction</div></div>
-        <div class="card stat"><div class="label">Alerts</div><div class="value" id="alertCount">-</div><div class="delta">Overspending notifications</div></div>
-      </section>
+            <div class="card pad" id="newCategoryModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,0.2); z-index: 1000; width: 90%; max-width: 400px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">New Category</h3>
+                    <button class="secondary" id="closeCategoryBtn" style="width: auto; padding: 8px 12px; font-size: 0.9rem;">✕</button>
+                </div>
+                <form id="categoryForm" style="display: grid; gap: 12px;">
+                    <label>Category Name *
+                        <input id="categoryName" type="text" placeholder="e.g., Groceries" required />
+                    </label>
+                    <label>Color
+                        <input id="categoryColor" type="color" value="#0f766e" />
+                    </label>
+                    <label>Icon (emoji)
+                        <input id="categoryIcon" type="text" placeholder="e.g., 🛒" style="font-size: 1.2rem;" />
+                    </label>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" style="flex: 1;">Create</button>
+                        <button type="button" class="secondary" id="cancelCategoryBtn" style="flex: 1;">Cancel</button>
+                    </div>
+                    <div id="categoryMessage" style="padding: 12px 14px; border-radius: 14px; display: none; font-size: 0.95rem;"></div>
+                </form>
+            </div>
 
-      <section class="grid" style="margin-top:16px;">
-        <div class="card panel wide">
-          <h2>Category breakdown</h2>
-          <p class="sub">Aggregate spend by category for the selected date range.</p>
-          <canvas id="categoryChart"></canvas>
-        </div>
-        <div class="card panel side">
-          <h2>Recent insights</h2>
-          <p class="sub">Generated from the insights and alerts APIs.</p>
-          <div class="insight-list" id="insights"></div>
-        </div>
-        <div class="card panel wide">
-          <h2>Recent expenses</h2>
-          <p class="sub">Only the latest 10 records are rendered to keep the page light.</p>
-          <div class="expense-list" id="expenses"></div>
-        </div>
-        <div class="card panel side">
-          <h2>Alerts</h2>
-          <p class="sub">Stored UI notifications synced with email dispatch.</p>
-          <div class="alert-list" id="alerts"></div>
-        </div>
-      </section>
-    </section>
-  </main>
+            <div id="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 999;" onclick="closeCategoryModal()"></div>
 
-  <script>
-    const state = {
-      token: localStorage.getItem("expenseDashboardToken") || "",
-      userId: localStorage.getItem("expenseDashboardUserId") || "",
-      user: null,
-      categories: [],
-      expenses: [],
-      alerts: [],
-      chart: null,
-      filters: { startDate: "", endDate: "", categoryId: "" },
-    };
+            <div class="toolbar card pad">
+                <button id="newExpenseBtn" class="secondary" style="min-width: 160px;">+ New Expense</button>
+                <label>Start date
+                    <input id="startDate" type="date" />
+                </label>
+                <label>End date
+                    <input id="endDate" type="date" />
+                </label>
+                <label>Category
+                    <select id="categoryFilter">
+                        <option value="">All categories</option>
+                    </select>
+                </label>
+                <label>Budget daily
+                    <input id="dailyBudget" type="number" min="0" step="0.01" placeholder="Daily threshold" />
+                </label>
+                <label>Budget monthly
+                    <input id="monthlyBudget" type="number" min="0" step="0.01" placeholder="Monthly threshold" />
+                </label>
+                <button id="applyFilters">Apply filters</button>
+                <button id="saveBudget" class="secondary">Save budget</button>
+                <button id="refreshBtn" class="secondary">Refresh</button>
+                <button id="logoutBtn" class="secondary">Logout</button>
+            </div>
 
-    const els = {
-      loginCard: document.getElementById("loginCard"),
-      app: document.getElementById("app"),
-      loginBtn: document.getElementById("loginBtn"),
-      logoutBtn: document.getElementById("logoutBtn"),
-      refreshBtn: document.getElementById("refreshBtn"),
-      applyFilters: document.getElementById("applyFilters"),
-      saveBudget: document.getElementById("saveBudget"),
-      email: document.getElementById("email"),
-      password: document.getElementById("password"),
-      startDate: document.getElementById("startDate"),
-      endDate: document.getElementById("endDate"),
-      categoryFilter: document.getElementById("categoryFilter"),
-      dailyBudget: document.getElementById("dailyBudget"),
-      monthlyBudget: document.getElementById("monthlyBudget"),
-      totalExpenses: document.getElementById("totalExpenses"),
-      totalSpend: document.getElementById("totalSpend"),
-      avgExpense: document.getElementById("avgExpense"),
-      alertCount: document.getElementById("alertCount"),
-      periodText: document.getElementById("periodText"),
-      insights: document.getElementById("insights"),
-      expenses: document.getElementById("expenses"),
-      alerts: document.getElementById("alerts"),
-      categoryChart: document.getElementById("categoryChart"),
-    };
+            <section class="grid" id="metrics">
+                <div class="card stat">
+                    <div class="label">Total Expenses</div>
+                    <div class="value" id="totalExpenses">-</div>
+                    <div class="delta" id="periodText">Loading…</div>
+                </div>
+                <div class="card stat">
+                    <div class="label">Total Spend</div>
+                    <div class="value" id="totalSpend">-</div>
+                    <div class="delta">Current filtered period</div>
+                </div>
+                <div class="card stat">
+                    <div class="label">Avg Expense</div>
+                    <div class="value" id="avgExpense">-</div>
+                    <div class="delta">Per transaction</div>
+                </div>
+                <div class="card stat">
+                    <div class="label">Alerts</div>
+                    <div class="value" id="alertCount">-</div>
+                    <div class="delta">Overspending notifications</div>
+                </div>
+            </section>
 
-    function fmtCurrency(value) {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Number(value || 0));
-    }
+            <section class="grid" style="margin-top:16px;">
+                <div class="card panel wide">
+                    <h2>Category breakdown</h2>
+                    <p class="sub">Aggregate spend by category for the selected date range.</p>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="card panel side">
+                    <h2>Recent insights</h2>
+                    <p class="sub">Generated from the insights and alerts APIs.</p>
+                    <div class="insight-list" id="insights"></div>
+                </div>
+                <div class="card panel wide">
+                    <h2>Recent expenses</h2>
+                    <p class="sub">Only the latest 10 records are rendered to keep the page light.</p>
+                    <div class="expense-list" id="expenses"></div>
+                </div>
+                <div class="card panel side">
+                    <h2>Alerts</h2>
+                    <p class="sub">Stored UI notifications synced with email dispatch.</p>
+                    <div class="alert-list" id="alerts"></div>
+                </div>
+            </section>
+        </section>
+    </main>
 
-    function authHeaders(extra = {}) {
-      return {
-        Authorization: `Bearer ${state.token}`,
-        "Content-Type": "application/json",
-        ...extra,
-      };
-    }
+    <script>
+        const state = {
+            token: localStorage.getItem("expenseDashboardToken") || "",
+            userId: localStorage.getItem("expenseDashboardUserId") || "",
+            user: null,
+            categories: [],
+            expenses: [],
+            alerts: [],
+            chart: null,
+            filters: { startDate: "", endDate: "", categoryId: "" },
+        };
 
-    async function fetchJSON(url, options = {}) {
-      const response = await fetch(url, options);
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Request failed (${response.status})`);
-      }
-      return response.json();
-    }
+        const els = {
+            loginCard: document.getElementById("loginCard"),
+            app: document.getElementById("app"),
+            loginBtn: document.getElementById("loginBtn"),
+            logoutBtn: document.getElementById("logoutBtn"),
+            refreshBtn: document.getElementById("refreshBtn"),
+            applyFilters: document.getElementById("applyFilters"),
+            saveBudget: document.getElementById("saveBudget"),
+            email: document.getElementById("email"),
+            password: document.getElementById("password"),
+            startDate: document.getElementById("startDate"),
+            endDate: document.getElementById("endDate"),
+            categoryFilter: document.getElementById("categoryFilter"),
+            dailyBudget: document.getElementById("dailyBudget"),
+            monthlyBudget: document.getElementById("monthlyBudget"),
+            totalExpenses: document.getElementById("totalExpenses"),
+            totalSpend: document.getElementById("totalSpend"),
+            avgExpense: document.getElementById("avgExpense"),
+            alertCount: document.getElementById("alertCount"),
+            periodText: document.getElementById("periodText"),
+            insights: document.getElementById("insights"),
+            expenses: document.getElementById("expenses"),
+            alerts: document.getElementById("alerts"),
+            categoryChart: document.getElementById("categoryChart"),
+            // New expense form elements
+            newExpenseBtn: document.getElementById("newExpenseBtn"),
+            expenseFormSection: document.getElementById("expenseFormSection"),
+            closeFormBtn: document.getElementById("closeFormBtn"),
+            expenseForm: document.getElementById("expenseForm"),
+            expenseAmount: document.getElementById("expenseAmount"),
+            expenseDate: document.getElementById("expenseDate"),
+            expenseCategory: document.getElementById("expenseCategory"),
+            expenseNotes: document.getElementById("expenseNotes"),
+            submitExpense: document.getElementById("submitExpense"),
+            formMessage: document.getElementById("formMessage"),
+            newCategoryBtn: document.getElementById("newCategoryBtn"),
+            newCategoryModal: document.getElementById("newCategoryModal"),
+            closeCategoryBtn: document.getElementById("closeCategoryBtn"),
+            cancelCategoryBtn: document.getElementById("cancelCategoryBtn"),
+            categoryForm: document.getElementById("categoryForm"),
+            categoryName: document.getElementById("categoryName"),
+            categoryColor: document.getElementById("categoryColor"),
+            categoryIcon: document.getElementById("categoryIcon"),
+            categoryMessage: document.getElementById("categoryMessage"),
+            modalOverlay: document.getElementById("modalOverlay"),
+        };
 
-    function toggleApp(show) {
-      els.loginCard.classList.toggle("hidden", show);
-      els.app.classList.toggle("hidden", !show);
-    }
+        function fmtCurrency(value) {
+            return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Number(value || 0));
+        }
 
-    function setLoading(isLoading) {
-      document.body.classList.toggle("loading", isLoading);
-    }
+        function authHeaders(extra = {}) {
+            return {
+                Authorization: `Bearer ${state.token}`,
+                "Content-Type": "application/json",
+                ...extra,
+            };
+        }
 
-    function buildQuery() {
-      const params = new URLSearchParams();
-      params.set("userId", state.userId);
-      if (state.filters.startDate) params.set("startDate", state.filters.startDate);
-      if (state.filters.endDate) params.set("endDate", state.filters.endDate);
-      if (state.filters.categoryId) params.set("categoryId", state.filters.categoryId);
-      params.set("sortBy", "date");
-      params.set("limit", "1000");
-      params.set("offset", "0");
-      return params.toString();
-    }
+        async function fetchJSON(url, options = {}) {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || `Request failed (${response.status})`);
+            }
+            return response.json();
+        }
 
-    async function login() {
-      setLoading(true);
-      try {
-        const payload = await fetchJSON("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: els.email.value.trim(),
-            password: els.password.value,
-          }),
-        });
+        function toggleApp(show) {
+            els.loginCard.classList.toggle("hidden", show);
+            els.app.classList.toggle("hidden", !show);
+        }
 
-        state.token = payload.tokens.accessToken;
-        state.userId = payload.user.id;
-        state.user = payload.user;
-        localStorage.setItem("expenseDashboardToken", state.token);
-        localStorage.setItem("expenseDashboardUserId", state.userId);
-        toggleApp(true);
-        await loadAll();
-      } catch (error) {
-        alert(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+        function setLoading(isLoading) {
+            document.body.classList.toggle("loading", isLoading);
+        }
 
-    async function loadAll() {
-      setLoading(true);
-      try {
-        const query = buildQuery();
-        const [profile, categories, expenses, stats, alerts, budget] = await Promise.all([
-          fetchJSON("/api/auth/me", { headers: authHeaders({}) }),
-          fetchJSON(`/api/categories?userId=${encodeURIComponent(state.userId)}`, { headers: authHeaders({}) }),
-          fetchJSON(`/api/expenses?${query}`, { headers: authHeaders({}) }),
-          fetchJSON(`/api/expenses/stats/${encodeURIComponent(state.userId)}?${new URLSearchParams({ startDate: state.filters.startDate, endDate: state.filters.endDate }).toString()}`, { headers: authHeaders({}) }),
-          fetchJSON("/api/alerts", { headers: authHeaders({}) }),
-          fetchJSON("/api/settings/budget", { headers: authHeaders({}) }),
-        ]);
+        function buildQuery() {
+            const params = new URLSearchParams();
+            params.set("userId", state.userId);
+            if (state.filters.startDate) params.set("startDate", state.filters.startDate);
+            if (state.filters.endDate) params.set("endDate", state.filters.endDate);
+            if (state.filters.categoryId) params.set("categoryId", state.filters.categoryId);
+            params.set("sortBy", "date");
+            params.set("limit", "1000");
+            params.set("offset", "0");
+            return params.toString();
+        }
 
-        state.user = profile;
-        state.categories = categories;
-        state.expenses = expenses.data;
-        state.alerts = alerts.data;
+        async function login() {
+            setLoading(true);
+            try {
+                const payload = await fetchJSON("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: els.email.value.trim(),
+                        password: els.password.value,
+                    }),
+                });
 
-        els.dailyBudget.value = budget.dailyBudgetLimit ?? "";
-        els.monthlyBudget.value = budget.monthlyBudgetLimit ?? "";
+                state.token = payload.tokens.accessToken;
+                state.userId = payload.user.id;
+                state.user = payload.user;
+                localStorage.setItem("expenseDashboardToken", state.token);
+                localStorage.setItem("expenseDashboardUserId", state.userId);
+                toggleApp(true);
+                await loadAll();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                setLoading(false);
+            }
+        }
 
-        renderMetrics(expenses.stats, alerts.data, stats.summary);
-        renderCategoryChart(stats.summary.byCategory);
-        renderInsights(stats.summary, alerts.data, categories);
-        renderExpenses(expenses.data);
-        renderAlerts(alerts.data);
-        renderCategoryFilter(categories);
-      } catch (error) {
-        alert(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+        async function loadAll() {
+            setLoading(true);
+            try {
+                const query = buildQuery();
+                const [profile, categories, expenses, stats, alerts, budget] = await Promise.all([
+                    fetchJSON("/api/auth/me", { headers: authHeaders({}) }),
+                    fetchJSON(`/api/categories?userId=${encodeURIComponent(state.userId)}`, { headers: authHeaders({}) }),
+                    fetchJSON(`/api/expenses?${query}`, { headers: authHeaders({}) }),
+                    fetchJSON(`/api/expenses/stats/${encodeURIComponent(state.userId)}?${new URLSearchParams({ startDate: state.filters.startDate, endDate: state.filters.endDate }).toString()}`, { headers: authHeaders({}) }),
+                    fetchJSON("/api/alerts", { headers: authHeaders({}) }),
+                    fetchJSON("/api/settings/budget", { headers: authHeaders({}) }),
+                ]);
 
-    function renderMetrics(stats, alerts, summary) {
-      els.totalExpenses.textContent = Number(stats.total || summary.totalExpenses || 0).toLocaleString();
-      els.totalSpend.textContent = fmtCurrency(stats.totalAmount || summary.totalAmount || 0);
-      els.avgExpense.textContent = fmtCurrency(stats.avgAmount || summary.avgAmount || 0);
-      els.alertCount.textContent = String(alerts.length);
-      els.periodText.textContent = state.filters.startDate || state.filters.endDate
-        ? `${state.filters.startDate || "start"} to ${state.filters.endDate || "today"}`
-        : "All time";
-    }
+                state.user = profile;
+                state.categories = categories;
+                state.expenses = expenses.data;
+                state.alerts = alerts.data;
 
-    function renderCategoryFilter(categories) {
-      const current = els.categoryFilter.value;
-      const options = ['<option value="">All categories</option>']
-        .concat(categories.map((category) => `<option value="${category.id}">${category.name}</option>`))
-        .join("");
-      els.categoryFilter.innerHTML = options;
-      els.categoryFilter.value = current;
-    }
+                els.dailyBudget.value = budget.dailyBudgetLimit ?? "";
+                els.monthlyBudget.value = budget.monthlyBudgetLimit ?? "";
 
-    function renderCategoryChart(byCategory) {
-      const labels = Object.keys(byCategory || {});
-      const values = labels.map((label) => byCategory[label].total || 0);
-      const ctx = els.categoryChart.getContext("2d");
+                renderMetrics(expenses.stats, alerts.data, stats.summary);
+                renderCategoryChart(stats.summary.byCategory);
+                renderInsights(stats.summary, alerts.data, categories);
+                renderExpenses(expenses.data);
+                renderAlerts(alerts.data);
+                renderCategoryFilter(categories);
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                setLoading(false);
+            }
+        }
 
-      if (state.chart) {
-        state.chart.destroy();
-      }
+        function renderMetrics(stats, alerts, summary) {
+            els.totalExpenses.textContent = Number(stats.total || summary.totalExpenses || 0).toLocaleString();
+            els.totalSpend.textContent = fmtCurrency(stats.totalAmount || summary.totalAmount || 0);
+            els.avgExpense.textContent = fmtCurrency(stats.avgAmount || summary.avgAmount || 0);
+            els.alertCount.textContent = String(alerts.length);
+            els.periodText.textContent = state.filters.startDate || state.filters.endDate
+                ? `${state.filters.startDate || "start"} to ${state.filters.endDate || "today"}`
+                : "All time";
+        }
 
-      state.chart = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels,
-          datasets: [{
-            data: values,
-            backgroundColor: ["#0f766e", "#d97706", "#7c3aed", "#2563eb", "#db2777", "#059669", "#dc2626"],
-            borderWidth: 0,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: "bottom" },
-          },
-        },
-      });
-    }
+        function renderCategoryFilter(categories) {
+            const current = els.categoryFilter.value;
+            const options = ['<option value="">All categories</option>']
+                .concat(categories.map((category) => `<option value="${category.id}">${category.name}</option>`))
+                .join("");
+            els.categoryFilter.innerHTML = options;
+            els.categoryFilter.value = current;
+            
+            // Also update expense form category options
+            renderCategoryOptions();
+        }
 
-    function renderInsights(summary, alerts, categories) {
-      const topCategory = Object.entries(summary.byCategory || {})
-        .sort((a, b) => b[1].total - a[1].total)[0];
-      const recentAlert = alerts[0];
-      const totalCategories = categories.length;
+        function renderCategoryChart(byCategory) {
+            const labels = Object.keys(byCategory || {});
+            const values = labels.map((label) => byCategory[label].total || 0);
+            const ctx = els.categoryChart.getContext("2d");
 
-      const items = [
-        topCategory && {
-          title: `Top category: ${topCategory[0]}`,
-          body: `${fmtCurrency(topCategory[1].total)} across ${topCategory[1].count} expenses`,
-          tag: "Insight",
-        },
-        {
-          title: `Categories tracked: ${totalCategories}`,
-          body: "Category totals are fetched as aggregates, not full row scans.",
-          tag: "Performance",
-        },
-        recentAlert && {
-          title: `${recentAlert.type} alert`,
-          body: `${fmtCurrency(recentAlert.spendTotal)} spent against ${fmtCurrency(recentAlert.threshold)} limit`,
-          tag: "Alert",
-        },
-      ].filter(Boolean);
+            if (state.chart) {
+                state.chart.destroy();
+            }
 
-      els.insights.innerHTML = items.map((item) => `
+            state.chart = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ["#0f766e", "#d97706", "#7c3aed", "#2563eb", "#db2777", "#059669", "#dc2626"],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                    },
+                },
+            });
+        }
+
+        function renderInsights(summary, alerts, categories) {
+            const topCategory = Object.entries(summary.byCategory || {})
+                .sort((a, b) => b[1].total - a[1].total)[0];
+            const recentAlert = alerts[0];
+            const totalCategories = categories.length;
+
+            const items = [
+                topCategory && {
+                    title: `Top category: ${topCategory[0]}`,
+                    body: `${fmtCurrency(topCategory[1].total)} across ${topCategory[1].count} expenses`,
+                    tag: "Insight",
+                },
+                {
+                    title: `Categories tracked: ${totalCategories}`,
+                    body: "Category totals are fetched as aggregates, not full row scans.",
+                    tag: "Performance",
+                },
+                recentAlert && {
+                    title: `${recentAlert.type} alert`,
+                    body: `${fmtCurrency(recentAlert.spendTotal)} spent against ${fmtCurrency(recentAlert.threshold)} limit`,
+                    tag: "Alert",
+                },
+            ].filter(Boolean);
+
+            els.insights.innerHTML = items.map((item) => `
         <div class="row">
           <div>
             <strong>${item.title}</strong>
@@ -448,10 +673,10 @@
           <span class="tag ${item.tag === "Alert" ? "danger" : ""}">${item.tag}</span>
         </div>
       `).join("") || '<div class="muted">No insights available yet.</div>';
-    }
+        }
 
-    function renderExpenses(expenses) {
-      els.expenses.innerHTML = (expenses || []).slice(0, 10).map((expense) => `
+        function renderExpenses(expenses) {
+            els.expenses.innerHTML = (expenses || []).slice(0, 10).map((expense) => `
         <div class="row">
           <div>
             <strong>${expense.description}</strong>
@@ -460,10 +685,10 @@
           <span class="tag">${fmtCurrency(expense.amount)}</span>
         </div>
       `).join("") || '<div class="muted">No expense rows match the selected filters.</div>';
-    }
+        }
 
-    function renderAlerts(alerts) {
-      els.alerts.innerHTML = (alerts || []).slice(0, 6).map((alert) => `
+        function renderAlerts(alerts) {
+            els.alerts.innerHTML = (alerts || []).slice(0, 6).map((alert) => `
         <div class="row">
           <div>
             <strong>${alert.type} threshold exceeded</strong>
@@ -472,56 +697,274 @@
           <span class="tag danger">${alert.status}</span>
         </div>
       `).join("") || '<div class="muted">No alerts have fired yet.</div>';
-    }
+        }
 
-    async function saveBudget() {
-      setLoading(true);
-      try {
-        await fetchJSON("/api/settings/budget", {
-          method: "PUT",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            dailyBudgetLimit: els.dailyBudget.value === "" ? null : Number(els.dailyBudget.value),
-            monthlyBudgetLimit: els.monthlyBudget.value === "" ? null : Number(els.monthlyBudget.value),
-            budgetAlertsEnabled: true,
-          }),
+        async function saveBudget() {
+            setLoading(true);
+            try {
+                await fetchJSON("/api/settings/budget", {
+                    method: "PUT",
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        dailyBudgetLimit: els.dailyBudget.value === "" ? null : Number(els.dailyBudget.value),
+                        monthlyBudgetLimit: els.monthlyBudget.value === "" ? null : Number(els.monthlyBudget.value),
+                        budgetAlertsEnabled: true,
+                    }),
+                });
+                await loadAll();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("expenseDashboardToken");
+            localStorage.removeItem("expenseDashboardUserId");
+            state.token = "";
+            state.userId = "";
+            state.user = null;
+            toggleApp(false);
+        }
+
+        // Expense form functions
+        function showExpenseForm() {
+            els.expenseFormSection.style.display = "block";
+            els.expenseAmount.focus();
+            // Set today's date by default
+            const today = new Date().toISOString().split('T')[0];
+            els.expenseDate.value = today;
+        }
+
+        function hideExpenseForm() {
+            els.expenseFormSection.style.display = "none";
+            els.expenseForm.reset();
+            const today = new Date().toISOString().split('T')[0];
+            els.expenseDate.value = today;
+            clearFormMessage();
+        }
+
+        function showFormMessage(message, isError = false) {
+            els.formMessage.textContent = message;
+            els.formMessage.style.display = "block";
+            els.formMessage.style.background = isError ? "rgba(185, 28, 28, 0.12)" : "rgba(15, 118, 110, 0.12)";
+            els.formMessage.style.color = isError ? "var(--danger)" : "var(--accent)";
+        }
+
+        function clearFormMessage() {
+            els.formMessage.textContent = "";
+            els.formMessage.style.display = "none";
+        }
+
+        function validateExpenseForm() {
+            const errors = [];
+            
+            if (!els.expenseAmount.value || Number(els.expenseAmount.value) <= 0) {
+                errors.push("Amount must be greater than 0");
+            }
+            
+            if (!els.expenseDate.value) {
+                errors.push("Date is required");
+            } else {
+                const selectedDate = new Date(els.expenseDate.value);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                if (selectedDate > today) {
+                    errors.push("Date cannot be in the future");
+                }
+            }
+            
+            if (!els.expenseCategory.value) {
+                errors.push("Category is required");
+            }
+            
+            if (els.expenseNotes.value.length > 500) {
+                errors.push("Notes cannot exceed 500 characters");
+            }
+            
+            return errors;
+        }
+
+        async function submitExpenseForm(e) {
+            e.preventDefault();
+            clearFormMessage();
+            
+            const errors = validateExpenseForm();
+            if (errors.length > 0) {
+                showFormMessage(errors.join("; "), true);
+                return;
+            }
+            
+            els.submitExpense.disabled = true;
+            els.submitExpense.textContent = "Creating...";
+            
+            try {
+                const payload = await fetchJSON("/api/expenses", {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        userId: state.userId,
+                        categoryId: els.expenseCategory.value,
+                        amount: Number(els.expenseAmount.value),
+                        description: `Expense for ${new Date(els.expenseDate.value).toLocaleDateString()}`,
+                        date: els.expenseDate.value,
+                        notes: els.expenseNotes.value || null,
+                    }),
+                });
+                
+                showFormMessage(`✓ Expense created successfully (${fmtCurrency(payload.amount)})`, false);
+                els.expenseForm.reset();
+                const today = new Date().toISOString().split('T')[0];
+                els.expenseDate.value = today;
+                
+                // Refresh dashboard data
+                await loadAll();
+                
+                // Hide form after 1.5 seconds
+                setTimeout(() => {
+                    hideExpenseForm();
+                }, 1500);
+            } catch (error) {
+                showFormMessage(error.message, true);
+            } finally {
+                els.submitExpense.disabled = false;
+                els.submitExpense.textContent = "Create Expense";
+            }
+        }
+
+        // Category modal functions
+        function openCategoryModal() {
+            els.newCategoryModal.style.display = "block";
+            els.modalOverlay.style.display = "block";
+            els.categoryName.focus();
+        }
+
+        function closeCategoryModal() {
+            els.newCategoryModal.style.display = "none";
+            els.modalOverlay.style.display = "none";
+            els.categoryForm.reset();
+            els.categoryName.value = "";
+            els.categoryColor.value = "#0f766e";
+            els.categoryIcon.value = "";
+            clearCategoryMessage();
+        }
+
+        function showCategoryMessage(message, isError = false) {
+            els.categoryMessage.textContent = message;
+            els.categoryMessage.style.display = "block";
+            els.categoryMessage.style.background = isError ? "rgba(185, 28, 28, 0.12)" : "rgba(15, 118, 110, 0.12)";
+            els.categoryMessage.style.color = isError ? "var(--danger)" : "var(--accent)";
+        }
+
+        function clearCategoryMessage() {
+            els.categoryMessage.textContent = "";
+            els.categoryMessage.style.display = "none";
+        }
+
+        function validateCategoryForm() {
+            const errors = [];
+            
+            if (!els.categoryName.value.trim()) {
+                errors.push("Category name is required");
+            }
+            
+            if (els.categoryName.value.length > 50) {
+                errors.push("Category name cannot exceed 50 characters");
+            }
+            
+            if (state.categories.some(cat => cat.name.toLowerCase() === els.categoryName.value.toLowerCase())) {
+                errors.push("This category already exists");
+            }
+            
+            return errors;
+        }
+
+        async function submitCategoryForm(e) {
+            e.preventDefault();
+            clearCategoryMessage();
+            
+            const errors = validateCategoryForm();
+            if (errors.length > 0) {
+                showCategoryMessage(errors.join("; "), true);
+                return;
+            }
+            
+            const submitBtn = els.categoryForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Creating...";
+            
+            try {
+                const newCategory = await fetchJSON("/api/categories", {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        userId: state.userId,
+                        name: els.categoryName.value.trim(),
+                        color: els.categoryColor.value,
+                        icon: els.categoryIcon.value || null,
+                    }),
+                });
+                
+                state.categories.push(newCategory);
+                renderCategoryOptions();
+                els.expenseCategory.value = newCategory.id;
+                
+                showCategoryMessage(`✓ Category "${newCategory.name}" created!`, false);
+                
+                setTimeout(() => {
+                    closeCategoryModal();
+                }, 1000);
+            } catch (error) {
+                showCategoryMessage(error.message, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Create";
+            }
+        }
+
+        function renderCategoryOptions() {
+            const current = els.expenseCategory.value;
+            const options = ['<option value="">Select a category</option>']
+                .concat(state.categories.map((cat) => `<option value="${cat.id}">${cat.name}</option>`))
+                .join("");
+            els.expenseCategory.innerHTML = options;
+            if (current) {
+                els.expenseCategory.value = current;
+            }
+        }
+
+        els.loginBtn.addEventListener("click", login);
+        els.logoutBtn.addEventListener("click", logout);
+        els.refreshBtn.addEventListener("click", loadAll);
+        els.applyFilters.addEventListener("click", async () => {
+            state.filters.startDate = els.startDate.value;
+            state.filters.endDate = els.endDate.value;
+            state.filters.categoryId = els.categoryFilter.value;
+            await loadAll();
         });
-        await loadAll();
-      } catch (error) {
-        alert(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+        els.categoryFilter.addEventListener("change", () => {
+            state.filters.categoryId = els.categoryFilter.value;
+            loadAll();
+        });
+        els.saveBudget.addEventListener("click", saveBudget);
 
-    function logout() {
-      localStorage.removeItem("expenseDashboardToken");
-      localStorage.removeItem("expenseDashboardUserId");
-      state.token = "";
-      state.userId = "";
-      state.user = null;
-      toggleApp(false);
-    }
+        // Expense form event listeners
+        els.newExpenseBtn.addEventListener("click", showExpenseForm);
+        els.closeFormBtn.addEventListener("click", hideExpenseForm);
+        els.expenseForm.addEventListener("submit", submitExpenseForm);
+        
+        // Category modal event listeners
+        els.newCategoryBtn.addEventListener("click", openCategoryModal);
+        els.closeCategoryBtn.addEventListener("click", closeCategoryModal);
+        els.cancelCategoryBtn.addEventListener("click", closeCategoryModal);
+        els.categoryForm.addEventListener("submit", submitCategoryForm);
 
-    els.loginBtn.addEventListener("click", login);
-    els.logoutBtn.addEventListener("click", logout);
-    els.refreshBtn.addEventListener("click", loadAll);
-    els.applyFilters.addEventListener("click", async () => {
-      state.filters.startDate = els.startDate.value;
-      state.filters.endDate = els.endDate.value;
-      state.filters.categoryId = els.categoryFilter.value;
-      await loadAll();
-    });
-    els.categoryFilter.addEventListener("change", () => {
-      state.filters.categoryId = els.categoryFilter.value;
-      loadAll();
-    });
-    els.saveBudget.addEventListener("click", saveBudget);
-
-    if (state.token && state.userId) {
-      toggleApp(true);
-      loadAll();
-    }
-  </script>
+        if (state.token && state.userId) {
+            toggleApp(true);
+            loadAll();
+        }
+    </script>
 </body>
+
 </html>
