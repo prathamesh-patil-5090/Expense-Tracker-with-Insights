@@ -27,6 +27,7 @@ export const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -54,6 +55,10 @@ app.get("/health", (req: Request, res: Response) => {
     status: "ok",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get("/", (req: Request, res: Response) => {
+  res.sendFile("index.html", { root: "public" });
 });
 
 // ============================================================================

@@ -111,7 +111,17 @@ npm run dev
 📊 API Documentation available at http://localhost:5000/api
 ```
 
-### 7. Test the API
+### 8. Open the Dashboard
+
+After starting the server, open:
+
+```bash
+http://localhost:5000
+```
+
+The page includes a simple login form, summary cards, a category chart, recent expenses, alerts, and budget settings. It uses the seeded account `john.doe@example.com / SecurePassword123!` for quick review.
+
+### 9. Test the API
 ```bash
 # Health check
 curl http://localhost:5000/health
