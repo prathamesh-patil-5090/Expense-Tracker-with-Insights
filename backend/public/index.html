@@ -384,6 +384,8 @@
                 </label>
                 <button id="applyFilters">Apply filters</button>
                 <button id="saveBudget" class="secondary">Save budget</button>
+                <button id="exportCsvBtn" class="secondary">Export report CSV</button>
+                <button id="exportPdfBtn" class="secondary">Export report PDF</button>
                 <button id="refreshBtn" class="secondary">Refresh</button>
                 <button id="logoutBtn" class="secondary">Logout</button>
             </div>
@@ -467,6 +469,8 @@
             startDate: document.getElementById("startDate"),
             endDate: document.getElementById("endDate"),
             categoryFilter: document.getElementById("categoryFilter"),
+            exportCsvBtn: document.getElementById("exportCsvBtn"),
+            exportPdfBtn: document.getElementById("exportPdfBtn"),
             dailyBudget: document.getElementById("dailyBudget"),
             monthlyBudget: document.getElementById("monthlyBudget"),
             totalExpenses: document.getElementById("totalExpenses"),
@@ -520,6 +524,60 @@
                 throw new Error(payload.error || `Request failed (${response.status})`);
             }
             return response.json();
+        }
+
+        function getFilenameFromDisposition(disposition) {
+            if (!disposition) return null;
+            const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/.exec(disposition);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = filename;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function buildExportUrl(format) {
+            const params = new URLSearchParams();
+            params.set("format", format);
+            params.set("userId", state.userId);
+            if (state.filters.startDate) params.set("startDate", state.filters.startDate);
+            if (state.filters.endDate) params.set("endDate", state.filters.endDate);
+            if (state.filters.categoryId) params.set("categoryId", state.filters.categoryId);
+            return `/api/exports/report?${params.toString()}`;
+        }
+
+        async function exportReport(format) {
+            const targetButton = format === "pdf" ? els.exportPdfBtn : els.exportCsvBtn;
+            const originalText = targetButton.textContent;
+            targetButton.disabled = true;
+            targetButton.textContent = format === "pdf" ? "Exporting PDF..." : "Exporting CSV...";
+
+            try {
+                const response = await fetch(buildExportUrl(format), {
+                    headers: authHeaders({}),
+                });
+
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || `Export failed (${response.status})`);
+                }
+
+                const blob = await response.blob();
+                const filename = getFilenameFromDisposition(response.headers.get("content-disposition")) || `expense-report.${format}`;
+                downloadBlob(blob, filename);
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                targetButton.disabled = false;
+                targetButton.textContent = originalText;
+            }
         }
 
         function toggleApp(show) {
@@ -1069,6 +1127,8 @@
             loadAll();
         });
         els.saveBudget.addEventListener("click", saveBudget);
+        els.exportCsvBtn.addEventListener("click", () => exportReport("csv"));
+        els.exportPdfBtn.addEventListener("click", () => exportReport("pdf"));
 
         // Expense form event listeners
         els.newExpenseBtn.addEventListener("click", showExpenseForm);

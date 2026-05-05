@@ -1,8 +1,10 @@
 import crypto from "crypto";
+import PDFDocument from "pdfkit";
+import Handlebars from "handlebars";
 import { Router, Request, Response } from "express";
 import { prisma } from "../index.js";
 
-type ExportFormat = "csv" | "json";
+type ExportFormat = "csv" | "json" | "pdf";
 type ExportSort = "date" | "amount" | "oldest";
 
 interface ExportQuery {
@@ -74,6 +76,158 @@ function buildOrderBy(sortBy: ExportSort | undefined) {
     default:
       return [{ date: "desc" as const }, { id: "asc" as const }];
   }
+}
+
+function reportFileName(userEmail: string, format: ExportFormat) {
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  return `expense-report-${userEmail}-${dateStamp}.${format}`;
+}
+
+function formatPeriodLabel(startDate?: string, endDate?: string) {
+  if (startDate && endDate) {
+    return `${startDate} through ${endDate}`;
+  }
+  if (startDate) {
+    return `Since ${startDate}`;
+  }
+  if (endDate) {
+    return `Through ${endDate}`;
+  }
+  return "All time";
+}
+
+Handlebars.registerHelper("csvValue", (value: unknown) => escapeCsv(value));
+
+function buildReportCsv(report: any) {
+  const template = Handlebars.compile(`"Report Title","Expense Summary"
+"Period","{{periodLabel}}"
+"User","{{user.name}}"
+"Email","{{user.email}}"
+"Total expenses","{{summary.totalExpenses}}"
+"Total spend","{{summary.totalAmount}}"
+"Average expense","{{summary.avgAmount}}"
+
+"Category Breakdown"
+"Category","Count","Total","Average"
+{{#each categoryBreakdown}}
+"{{csvValue name}}","{{count}}","{{csvValue total}}","{{csvValue average}}"
+{{/each}}
+
+"Daily Trend"
+"Date","Total"
+{{#each trends}}
+"{{csvValue date}}","{{csvValue total}}"
+{{/each}}
+
+"Recent Expenses"
+"Date","Category","Description","Amount","Notes"
+{{#each recentExpenses}}
+"{{csvValue date}}","{{csvValue category}}","{{csvValue description}}","{{csvValue amount}}","{{csvValue notes}}"
+{{/each}}`);
+
+  return template(report);
+}
+
+function drawBarChart(doc: PDFKit.PDFDocument, items: Array<{ name: string; total: number; color: string }>, x: number, y: number, width: number, height: number) {
+  const maxValue = Math.max(...items.map((item) => item.total), 1);
+  const columnWidth = width / Math.max(items.length, 1);
+  const barWidth = Math.min(40, columnWidth * 0.75);
+
+  items.forEach((item, index) => {
+    const barHeight = (item.total / maxValue) * (height - 20);
+    const barX = x + index * columnWidth + (columnWidth - barWidth) / 2;
+    const barY = y + height - barHeight;
+
+    doc.rect(barX, barY, barWidth, barHeight).fill(item.color || "#0f766e");
+    doc.fillColor("black").fontSize(8).text(item.name, x + index * columnWidth, y + height + 4, {
+      width: columnWidth,
+      align: "center",
+      ellipsis: true,
+    });
+  });
+}
+
+function drawTrendChart(doc: PDFKit.PDFDocument, points: Array<{ date: string; total: number }>, x: number, y: number, width: number, height: number) {
+  const maxValue = Math.max(...points.map((point) => point.total), 1);
+  const pointSpacing = points.length > 1 ? width / (points.length - 1) : width;
+
+  doc.save().strokeColor("#2563eb").lineWidth(2);
+  points.forEach((point, index) => {
+    const pointX = x + index * pointSpacing;
+    const pointY = y + height - (point.total / maxValue) * (height - 20);
+
+    if (index === 0) {
+      doc.moveTo(pointX, pointY);
+    } else {
+      doc.lineTo(pointX, pointY);
+    }
+  });
+  doc.stroke();
+
+  doc.fillColor("#2563eb");
+  points.forEach((point, index) => {
+    const pointX = x + index * pointSpacing;
+    const pointY = y + height - (point.total / maxValue) * (height - 20);
+    doc.circle(pointX, pointY, 3).fill();
+  });
+
+  doc.fillColor("black").fontSize(8);
+  points.forEach((point, index) => {
+    const pointX = x + index * pointSpacing;
+    doc.text(point.date, pointX - 20, y + height + 4, {
+      width: 40,
+      align: "center",
+      ellipsis: true,
+    });
+  });
+  doc.restore();
+}
+
+function streamPdfReport(res: Response, report: any, filename: string) {
+  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Cache-Control", "no-store");
+
+  doc.fontSize(20).text("Expense Summary Report", { align: "center" });
+  doc.moveDown(0.5);
+  doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`);
+  doc.text(`User: ${report.user.name} <${report.user.email}>`);
+  doc.text(`Period: ${report.periodLabel}`);
+  doc.moveDown();
+
+  doc.fontSize(12).text("Summary", { underline: true });
+  doc.moveDown(0.2);
+  doc.fontSize(10).text(`Total expenses: ${report.summary.totalExpenses}`);
+  doc.text(`Total spend: $${report.summary.totalAmount.toFixed(2)}`);
+  doc.text(`Average expense: $${report.summary.avgAmount.toFixed(2)}`);
+  doc.moveDown();
+
+  doc.fontSize(12).text("Category Breakdown", { underline: true });
+  doc.moveDown(0.2);
+  const chartY = doc.y;
+  drawBarChart(doc, report.categoryBreakdown.slice(0, 8), 50, chartY, 500, 120);
+  doc.moveDown(8);
+
+  doc.fontSize(12).text("Trend Graph", { underline: true });
+  doc.moveDown(0.2);
+  drawTrendChart(doc, report.trends.slice(-10), 50, doc.y, 500, 120);
+  doc.moveDown(8);
+
+  doc.fontSize(12).text("Recent Expenses", { underline: true });
+  doc.moveDown(0.2);
+  doc.fontSize(10);
+  report.recentExpenses.forEach((expense: any) => {
+    doc.text(
+      `${expense.date} • ${expense.category} • ${expense.description} • $${expense.amount.toFixed(2)}${expense.notes ? ` • ${expense.notes}` : ""}`,
+      {
+        paragraphGap: 2,
+      }
+    );
+  });
+
+  doc.pipe(res);
+  doc.end();
 }
 
 function fileNameFor(userEmail: string, format: ExportFormat) {
