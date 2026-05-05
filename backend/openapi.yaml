@@ -1,0 +1,1085 @@
+openapi: 3.0.0
+info:
+  title: Expense Tracker API
+  description: |
+    A comprehensive RESTful API for managing expenses, categories, budgets, and alerts.
+
+    **Key Features:**
+    - User authentication with JWT tokens
+    - Complete CRUD operations for expenses and categories
+    - Budget threshold configuration and alerts
+    - Data export (CSV/JSON) with streaming
+    - Pagination and filtering for large datasets
+    - Role-based access control (USER/ADMIN)
+
+    **Base URL:** `http://localhost:5000/api`
+
+    **Authentication:** All endpoints (except auth) require JWT Bearer token in Authorization header.
+  version: 1.0.0
+  contact:
+    name: Development Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server (example)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token obtained from login endpoint. 
+        Include in header as: `Authorization: Bearer <accessToken>`
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User's email address
+        name:
+          type: string
+          description: User's full name
+        role:
+          type: string
+          enum: [ USER, ADMIN ]
+          description: User role for access control
+        emailVerified:
+          type: boolean
+          description: Whether email has been verified
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: Last login timestamp
+        dailyBudgetLimit:
+          type: number
+          format: double
+          nullable: true
+          description: Daily spending limit in USD
+        monthlyBudgetLimit:
+          type: number
+          format: double
+          nullable: true
+          description: Monthly spending limit in USD
+        budgetAlertsEnabled:
+          type: boolean
+          description: Whether budget alerts are enabled
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          description: Owner of the category
+        name:
+          type: string
+          description: Category name (e.g., "Groceries")
+        description:
+          type: string
+          nullable: true
+          description: Optional category description
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          description: Hex color code for UI rendering
+        icon:
+          type: string
+          nullable: true
+          description: Emoji or icon identifier
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - color
+
+    Expense:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique expense identifier
+        userId:
+          type: string
+          format: uuid
+          description: Owner of the expense
+        categoryId:
+          type: string
+          format: uuid
+          description: Associated category ID
+        category:
+          $ref: "#/components/schemas/Category"
+          description: Full category object (included in responses)
+        amount:
+          type: number
+          format: double
+          description: Expense amount in USD
+          minimum: 0.01
+        description:
+          type: string
+          description: Short description of the expense
+        date:
+          type: string
+          format: date
+          description: Expense date (YYYY-MM-DD)
+        receipt:
+          type: string
+          nullable: true
+          format: uri
+          description: URL to receipt image/document
+        notes:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Optional additional notes
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - categoryId
+        - amount
+        - description
+        - date
+
+    ExpenseList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Expense"
+          description: Array of expense records
+        stats:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Total number of expenses matching filter
+            totalAmount:
+              type: number
+              format: double
+              description: Sum of all amounts
+            avgAmount:
+              type: number
+              format: double
+              description: Average amount per expense
+          required:
+            - total
+            - totalAmount
+            - avgAmount
+        pageInfo:
+          type: object
+          properties:
+            limit:
+              type: integer
+              description: Page size (items per page)
+            offset:
+              type: integer
+              description: Number of items skipped
+            returned:
+              type: integer
+              description: Number of items in this response
+          required:
+            - limit
+            - offset
+            - returned
+
+    ExpenseStats:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        summary:
+          type: object
+          properties:
+            totalExpenses:
+              type: integer
+              description: Total count of expenses
+            totalAmount:
+              type: number
+              format: double
+              description: Sum of all expense amounts
+            avgAmount:
+              type: number
+              format: double
+              description: Average per expense
+            byCategory:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  categoryId:
+                    type: string
+                  count:
+                    type: integer
+                    description: Number of expenses in category
+                  total:
+                    type: number
+                    format: double
+                    description: Sum for category
+                  average:
+                    type: number
+                    format: double
+                    description: Average per expense in category
+                  color:
+                    type: string
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              description: Filter start date or "all-time"
+            endDate:
+              type: string
+              description: Filter end date or "today"
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [ DAILY, MONTHLY ]
+          description: Alert type (daily or monthly budget)
+        threshold:
+          type: number
+          format: double
+          description: Budget limit that was exceeded
+        spendTotal:
+          type: number
+          format: double
+          description: Total amount spent in period
+        message:
+          type: string
+          description: Alert message
+        channel:
+          type: string
+          enum: [ EMAIL, PUSH, SYSTEM ]
+        status:
+          type: string
+          enum: [ SENT, PENDING ]
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    BudgetSettings:
+      type: object
+      properties:
+        dailyBudgetLimit:
+          type: number
+          format: double
+          nullable: true
+          description: Daily spending threshold
+        monthlyBudgetLimit:
+          type: number
+          format: double
+          nullable: true
+          description: Monthly spending threshold
+        budgetAlertsEnabled:
+          type: boolean
+          description: Whether alerts trigger on threshold exceeded
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      tags: [ Authentication ]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        description: JWT access token (24h expiration)
+                      refreshToken:
+                        type: string
+                        description: JWT refresh token (7d expiration)
+        401:
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/register:
+    post:
+      summary: User registration
+      tags: [ Authentication ]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                  description: Must contain uppercase, lowercase, number, and special character
+                name:
+                  type: string
+              required:
+                - email
+                - password
+                - name
+      responses:
+        201:
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        400:
+          description: Invalid input or user already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /expenses:
+    get:
+      summary: List expenses with pagination and filtering
+      tags: [ Expenses ]
+      description: |
+        Retrieve paginated list of expenses with optional filtering by date range and category.
+        Uses aggregated queries for performance with large datasets.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to fetch expenses for
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific category
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter expenses from this date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter expenses until this date (YYYY-MM-DD)
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [ date, amount, oldest ]
+            default: date
+          description: Sort order (date=newest first, amount=highest first, oldest=oldest
+            first)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 1000
+          description: Page size (items per page)
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of items to skip (for pagination)
+      responses:
+        200:
+          description: List of expenses with statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseList"
+        400:
+          description: Missing or invalid userId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create new expense
+      tags: [ Expenses ]
+      description: |
+        Create a new expense record. Automatically triggers budget alert evaluation.
+
+        **Validation:**
+        - `amount` must be > 0
+        - `categoryId` must belong to the user
+        - `date` defaults to today if not provided
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: Owner of the expense
+                categoryId:
+                  type: string
+                  format: uuid
+                  description: Category for this expense
+                amount:
+                  type: number
+                  format: double
+                  minimum: 0.01
+                  description: Amount spent in USD
+                description:
+                  type: string
+                  description: Short description (e.g., "Grocery shopping")
+                date:
+                  type: string
+                  format: date
+                  description: Expense date (YYYY-MM-DD), defaults to today
+                receipt:
+                  type: string
+                  format: uri
+                  nullable: true
+                  description: URL to receipt image
+                notes:
+                  type: string
+                  nullable: true
+                  maxLength: 500
+                  description: Additional notes
+              required:
+                - userId
+                - categoryId
+                - amount
+                - description
+      responses:
+        201:
+          description: Expense created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        400:
+          description: Invalid input (missing required fields, invalid amount, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: User or category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /expenses/{id}:
+    get:
+      summary: Get expense by ID
+      tags: [ Expenses ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Expense ID
+      responses:
+        200:
+          description: Expense details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        404:
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Update expense
+      tags: [ Expenses ]
+      description: |
+        Update one or more fields of an expense. All fields are optional.
+        Automatically triggers budget alert re-evaluation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Expense ID to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                  format: double
+                  minimum: 0.01
+                description:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                receipt:
+                  type: string
+                  format: uri
+                  nullable: true
+                notes:
+                  type: string
+                  nullable: true
+                  maxLength: 500
+      responses:
+        200:
+          description: Expense updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Expense or category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete expense
+      tags: [ Expenses ]
+      description: |
+        Delete an expense record. Automatically triggers budget alert re-evaluation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Expense ID to delete
+      responses:
+        200:
+          description: Expense deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Expense deleted successfully"
+        404:
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /expenses/stats/{userId}:
+    get:
+      summary: Get expense statistics and summary
+      tags: [ Expenses ]
+      description: |
+        Retrieve aggregated expense statistics for a user, including total amounts,
+        counts, and breakdown by category. Uses efficient aggregation queries.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to get statistics for
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter from date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter to date (YYYY-MM-DD)
+      responses:
+        200:
+          description: Aggregated expense statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseStats"
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /categories:
+    get:
+      summary: List categories for a user
+      tags: [ Categories ]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID to fetch categories for
+      responses:
+        200:
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create new category
+      tags: [ Categories ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                description:
+                  type: string
+                  maxLength: 200
+                color:
+                  type: string
+                  pattern: "^#[0-9A-Fa-f]{6}$"
+                  description: Hex color code
+                icon:
+                  type: string
+                  nullable: true
+                  description: Emoji icon
+              required:
+                - userId
+                - name
+                - color
+      responses:
+        201:
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        400:
+          description: Invalid input or duplicate category name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /categories/{id}:
+    put:
+      summary: Update category
+      tags: [ Categories ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                  pattern: "^#[0-9A-Fa-f]{6}$"
+                icon:
+                  type: string
+                  nullable: true
+      responses:
+        200:
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        404:
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete category
+      tags: [ Categories ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        404:
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /alerts:
+    get:
+      summary: List budget alerts for user
+      tags: [ Alerts ]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ SENT, PENDING ]
+      responses:
+        200:
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Alert"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /settings/budget:
+    get:
+      summary: Get budget settings for current user
+      tags: [ Settings ]
+      responses:
+        200:
+          description: Budget settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetSettings"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Update budget settings
+      tags: [ Settings ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetSettings"
+      responses:
+        200:
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetSettings"
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /exports:
+    get:
+      summary: Export expenses as CSV or JSON
+      tags: [ Exports ]
+      description: |
+        Stream expense data in CSV or JSON format. Supports filtering by date range and category.
+        Large datasets are streamed to prevent memory overload.
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ csv, json ]
+          description: Export format
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by category
+      responses:
+        200:
+          description: File stream
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+        400:
+          description: Invalid format or parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
