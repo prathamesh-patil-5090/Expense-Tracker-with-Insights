@@ -28,21 +28,48 @@ router.get("/", validateUser, async (req: Request, res: Response) => {
     const userId = req.query.userId as string;
     const categories = await prisma.category.findMany({
       where: { userId },
-      include: {
-        expenses: {
-          select: {
-            amount: true,
-          },
-        },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        color: true,
+        icon: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        name: "asc",
       },
     });
 
-    // Add expense count and total for each category
-    const categoriesWithStats = categories.map((cat) => ({
-      ...cat,
-      expenseCount: cat.expenses.length,
-      totalAmount: cat.expenses.reduce((sum, exp) => sum + exp.amount, 0),
-    }));
+    const expenseTotals = await prisma.expense.groupBy({
+      by: ["categoryId"],
+      where: { userId },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const totalsByCategoryId = new Map(
+      expenseTotals.map((item) => [
+        item.categoryId,
+        {
+          expenseCount: item._count.id,
+          totalAmount: item._sum.amount || 0,
+        },
+      ])
+    );
+
+    const categoriesWithStats = categories.map((cat) => {
+      const totals = totalsByCategoryId.get(cat.id) || { expenseCount: 0, totalAmount: 0 };
+      return {
+        ...cat,
+        ...totals,
+      };
+    });
 
     res.json(categoriesWithStats);
   } catch (error) {

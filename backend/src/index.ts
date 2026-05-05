@@ -32,6 +32,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Response timing middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const startedAt = process.hrtime.bigint();
+
+  res.on("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    console.log(
+      `[perf] ${req.method} ${req.path} ${res.statusCode} ${durationMs.toFixed(2)}ms`
+    );
+  });
+
+  next();
+});
+
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
   res.json({

@@ -3,77 +3,238 @@ import { prisma } from "../index.js";
 
 const router = Router();
 
+const DEFAULT_PAGE_SIZE = 1000;
+const MAX_PAGE_SIZE = 1000;
+
+function parsePositiveInteger(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.min(Math.floor(parsed), MAX_PAGE_SIZE);
+}
+
+function buildExpenseWhere(params: {
+  userId: string;
+  categoryId?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+}) {
+  const where: any = {
+    userId: params.userId,
+  };
+
+  if (params.categoryId) {
+    where.categoryId = params.categoryId as string;
+  }
+
+  if (params.startDate || params.endDate) {
+    where.date = {};
+    if (params.startDate) {
+      where.date.gte = new Date(params.startDate as string);
+    }
+    if (params.endDate) {
+      where.date.lte = new Date(params.endDate as string);
+    }
+  }
+
+  return where;
+}
+
+function buildOrderBy(sortBy: unknown) {
+  switch (sortBy) {
+    case "amount":
+      return [{ amount: "desc" as const }, { id: "asc" as const }];
+    case "oldest":
+      return [{ date: "asc" as const }, { id: "asc" as const }];
+    case "date":
+    default:
+      return [{ date: "desc" as const }, { id: "asc" as const }];
+  }
+}
+
+function expenseSelect() {
+  return {
+    id: true,
+    amount: true,
+    description: true,
+    date: true,
+    receipt: true,
+    notes: true,
+    createdAt: true,
+    updatedAt: true,
+    categoryId: true,
+    category: {
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        icon: true,
+      },
+    },
+    user: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    },
+  };
+}
+
 // GET all expenses for a user with optional filters
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { userId, categoryId, startDate, endDate, sortBy = "date" } = req.query;
+    const {
+      userId,
+      categoryId,
+      startDate,
+      endDate,
+      sortBy = "date",
+      limit,
+      offset,
+    } = req.query;
 
     if (!userId) {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const where: any = {
+    const pageSize = parsePositiveInteger(limit, DEFAULT_PAGE_SIZE);
+    const pageOffset = Number.isFinite(Number(offset)) && Number(offset) > 0 ? Math.floor(Number(offset)) : 0;
+
+    const where = buildExpenseWhere({
       userId: userId as string,
-    };
-
-    if (categoryId) {
-      where.categoryId = categoryId as string;
-    }
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
-    }
-
-    const orderBy: any = {};
-    switch (sortBy) {
-      case "amount":
-        orderBy.amount = "desc";
-        break;
-      case "oldest":
-        orderBy.date = "asc";
-        break;
-      case "date":
-      default:
-        orderBy.date = "desc";
-        break;
-    }
-
-    const expenses = await prisma.expense.findMany({
-      where,
-      include: {
-        category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy,
+      categoryId,
+      startDate,
+      endDate,
     });
 
-    // Calculate statistics
-    const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const avgAmount = expenses.length > 0 ? totalAmount / expenses.length : 0;
+    const [expenses, totalCount, totals] = await Promise.all([
+      prisma.expense.findMany({
+        where,
+        orderBy: buildOrderBy(sortBy),
+        select: expenseSelect(),
+        take: pageSize,
+        skip: pageOffset,
+      }),
+      prisma.expense.count({ where }),
+      prisma.expense.aggregate({
+        where,
+        _sum: { amount: true },
+        _avg: { amount: true },
+      }),
+    ]);
+
+    const totalAmount = totals._sum.amount || 0;
+    const avgAmount = totals._avg.amount || 0;
 
     res.json({
       data: expenses,
       stats: {
-        total: expenses.length,
+        total: totalCount,
         totalAmount,
         avgAmount,
+      },
+      pageInfo: {
+        limit: pageSize,
+        offset: pageOffset,
+        returned: expenses.length,
       },
     });
   } catch (error) {
     console.error("Error fetching expenses:", error);
     res.status(500).json({ error: "Failed to fetch expenses" });
+  }
+});
+
+// GET expense summary/statistics for a user
+router.get("/stats/:userId", async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const where = buildExpenseWhere({
+      userId,
+      startDate,
+      endDate,
+    });
+
+    const [summary, byCategory] = await Promise.all([
+      prisma.expense.aggregate({
+        where,
+        _count: { id: true },
+        _sum: { amount: true },
+        _avg: { amount: true },
+      }),
+      prisma.expense.groupBy({
+        by: ["categoryId"],
+        where,
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const categories = await prisma.category.findMany({
+      where: {
+        id: {
+          in: byCategory.map((group) => group.categoryId),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+      },
+    });
+
+    const categoryLookup = new Map(categories.map((category) => [category.id, category]));
+    const groupedByCategory = byCategory.reduce((acc, group) => {
+      const category = categoryLookup.get(group.categoryId);
+      if (!category) {
+        return acc;
+      }
+
+      acc[category.name] = {
+        categoryId: group.categoryId,
+        count: group._count.id,
+        total: group._sum.amount || 0,
+        average: group._count.id > 0 ? (group._sum.amount || 0) / group._count.id : 0,
+        color: category.color,
+      };
+      return acc;
+    }, {} as Record<string, any>);
+
+    const totalAmount = summary._sum.amount || 0;
+
+    res.json({
+      user,
+      summary: {
+        totalExpenses: summary._count.id,
+        totalAmount,
+        avgAmount: summary._avg.amount || 0,
+        byCategory: groupedByCategory,
+      },
+      period: {
+        startDate: startDate || "all-time",
+        endDate: endDate || "today",
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching expense statistics:", error);
+    res.status(500).json({ error: "Failed to fetch statistics" });
   }
 });
 
@@ -83,16 +244,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
     const expense = await prisma.expense.findUnique({
       where: { id },
-      include: {
-        category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: expenseSelect(),
     });
 
     if (!expense) {
@@ -153,16 +305,7 @@ router.post("/", async (req: Request, res: Response) => {
         receipt: receipt || null,
         notes: notes || null,
       },
-      include: {
-        category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: expenseSelect(),
     });
 
     res.status(201).json(expense);
@@ -210,16 +353,7 @@ router.put("/:id", async (req: Request, res: Response) => {
         ...(receipt !== undefined && { receipt }),
         ...(notes !== undefined && { notes }),
       },
-      include: {
-        category: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: expenseSelect(),
     });
 
     res.json(expense);
@@ -248,86 +382,6 @@ router.delete("/:id", async (req: Request, res: Response) => {
     }
     console.error("Error deleting expense:", error);
     res.status(500).json({ error: "Failed to delete expense" });
-  }
-});
-
-// GET expense summary/statistics for a user
-router.get("/stats/:userId", async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const { startDate, endDate } = req.query;
-
-    // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const where: any = { userId };
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
-    }
-
-    // Get all expenses
-    const expenses = await prisma.expense.findMany({
-      where,
-      include: {
-        category: true,
-      },
-    });
-
-    // Group by category
-    const byCategory = expenses.reduce(
-      (acc, expense) => {
-        const catName = expense.category.name;
-        if (!acc[catName]) {
-          acc[catName] = {
-            categoryId: expense.categoryId,
-            count: 0,
-            total: 0,
-            average: 0,
-            color: expense.category.color,
-          };
-        }
-        acc[catName].count += 1;
-        acc[catName].total += expense.amount;
-        acc[catName].average = acc[catName].total / acc[catName].count;
-        return acc;
-      },
-      {} as Record<string, any>
-    );
-
-    const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-    res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-      },
-      summary: {
-        totalExpenses: expenses.length,
-        totalAmount,
-        avgAmount: expenses.length > 0 ? totalAmount / expenses.length : 0,
-        byCategory,
-      },
-      period: {
-        startDate: startDate || "all-time",
-        endDate: endDate || "today",
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching expense statistics:", error);
-    res.status(500).json({ error: "Failed to fetch statistics" });
   }
 });
 
