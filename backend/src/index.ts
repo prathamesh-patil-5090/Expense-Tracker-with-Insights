@@ -106,25 +106,29 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start server
-const server = app.listen(port, () => {
-  console.log(`🚀 Server is running at http://localhost:${port}`);
-  console.log(`📊 API Documentation available at http://localhost:${port}/api`);
-});
-
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  console.log("\n🛑 Shutting down gracefully...");
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+if (process.env.NODE_ENV !== "test") {
+  const server = app.listen(port, () => {
+    console.log(`🚀 Server is running at http://localhost:${port}`);
+    console.log(`📊 API Documentation available at http://localhost:${port}/api`);
   });
-});
 
-process.on("SIGTERM", async () => {
-  console.log("\n🛑 Shutting down gracefully...");
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+  // Graceful shutdown
+  process.on("SIGINT", async () => {
+    console.log("\n🛑 Shutting down gracefully...");
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
   });
-});
+
+  process.on("SIGTERM", async () => {
+    console.log("\n🛑 Shutting down gracefully...");
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+  });
+}
+
+export default app;
+
