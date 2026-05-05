@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "sqlite"
+    url      = env("DATABASE_URL")
+}
+
+// Users table - stores user account information
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    categories Category[]
+    expenses   Expense[]
+
+    @@index([email])
+}
+
+// Categories table - stores expense categories
+model Category {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    color       String   @default("#3B82F6") // Tailwind blue-500
+    icon        String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Foreign key
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Relations
+    expenses Expense[]
+
+    @@unique([userId, name])
+    @@index([userId])
+}
+
+// Expenses table - stores individual expenses
+model Expense {
+    id          String   @id @default(cuid())
+    amount      Float
+    description String
+    date        DateTime
+    receipt     String? // URL or path to receipt image
+    notes       String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Foreign keys
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    categoryId String
+    category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+    @@index([userId])
+    @@index([categoryId])
+    @@index([date])
+    @@index([userId, date])
+}
