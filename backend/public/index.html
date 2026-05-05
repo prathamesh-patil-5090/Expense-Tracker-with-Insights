@@ -432,6 +432,11 @@
                     <p class="sub">Stored UI notifications synced with email dispatch.</p>
                     <div class="alert-list" id="alerts"></div>
                 </div>
+                <div class="card panel wide">
+                    <h2>Category manager</h2>
+                    <p class="sub">Create, edit, and remove categories for your expense entries.</p>
+                    <div id="categoryManager"></div>
+                </div>
             </section>
         </section>
     </main>
@@ -446,6 +451,7 @@
             alerts: [],
             chart: null,
             filters: { startDate: "", endDate: "", categoryId: "" },
+            editingCategoryId: null,
         };
 
         const els = {
@@ -590,6 +596,7 @@
                 renderExpenses(expenses.data);
                 renderAlerts(alerts.data);
                 renderCategoryFilter(categories);
+                renderCategoryManager(categories);
             } catch (error) {
                 alert(error.message);
             } finally {
@@ -842,19 +849,28 @@
         }
 
         // Category modal functions
-        function openCategoryModal() {
+        function openCategoryModal(category = null) {
+            state.editingCategoryId = category?.id || null;
             els.newCategoryModal.style.display = "block";
             els.modalOverlay.style.display = "block";
+            els.categoryName.value = category?.name || "";
+            els.categoryColor.value = category?.color || "#0f766e";
+            els.categoryIcon.value = category?.icon || "";
+            els.newCategoryModal.querySelector("h3").textContent = category ? "Edit Category" : "New Category";
+            els.categoryForm.querySelector('button[type="submit"]').textContent = category ? "Save" : "Create";
             els.categoryName.focus();
         }
 
         function closeCategoryModal() {
+            state.editingCategoryId = null;
             els.newCategoryModal.style.display = "none";
             els.modalOverlay.style.display = "none";
             els.categoryForm.reset();
             els.categoryName.value = "";
             els.categoryColor.value = "#0f766e";
             els.categoryIcon.value = "";
+            els.newCategoryModal.querySelector("h3").textContent = "New Category";
+            els.categoryForm.querySelector('button[type="submit"]').textContent = "Create";
             clearCategoryMessage();
         }
 
@@ -872,16 +888,21 @@
 
         function validateCategoryForm() {
             const errors = [];
+            const categoryName = els.categoryName.value.trim();
 
-            if (!els.categoryName.value.trim()) {
+            if (!categoryName) {
                 errors.push("Category name is required");
             }
 
-            if (els.categoryName.value.length > 50) {
+            if (categoryName.length > 50) {
                 errors.push("Category name cannot exceed 50 characters");
             }
 
-            if (state.categories.some(cat => cat.name.toLowerCase() === els.categoryName.value.toLowerCase())) {
+            const duplicate = state.categories.find(
+                (cat) => cat.name.toLowerCase() === categoryName.toLowerCase()
+            );
+
+            if (duplicate && duplicate.id !== state.editingCategoryId) {
                 errors.push("This category already exists");
             }
 
@@ -900,26 +921,42 @@
 
             const submitBtn = els.categoryForm.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
-            submitBtn.textContent = "Creating...";
+            submitBtn.textContent = state.editingCategoryId ? "Saving..." : "Creating...";
 
             try {
-                const newCategory = await fetchJSON("/api/categories", {
-                    method: "POST",
-                    headers: authHeaders(),
-                    body: JSON.stringify({
-                        userId: state.userId,
-                        name: els.categoryName.value.trim(),
-                        color: els.categoryColor.value,
-                        icon: els.categoryIcon.value || null,
-                    }),
-                });
+                const payload = {
+                    userId: state.userId,
+                    name: els.categoryName.value.trim(),
+                    color: els.categoryColor.value,
+                    icon: els.categoryIcon.value || null,
+                };
 
-                state.categories.push(newCategory);
+                let category;
+                if (state.editingCategoryId) {
+                    category = await fetchJSON(`/api/categories/${state.editingCategoryId}`, {
+                        method: "PUT",
+                        headers: authHeaders(),
+                        body: JSON.stringify(payload),
+                    });
+
+                    state.categories = state.categories.map((cat) =>
+                        cat.id === category.id ? category : cat
+                    );
+                    showCategoryMessage(`✓ Category "${category.name}" updated!`, false);
+                } else {
+                    category = await fetchJSON("/api/categories", {
+                        method: "POST",
+                        headers: authHeaders(),
+                        body: JSON.stringify(payload),
+                    });
+
+                    state.categories.push(category);
+                    els.expenseCategory.value = category.id;
+                    showCategoryMessage(`✓ Category "${category.name}" created!`, false);
+                }
+
                 renderCategoryOptions();
-                els.expenseCategory.value = newCategory.id;
-
-                showCategoryMessage(`✓ Category "${newCategory.name}" created!`, false);
-
+                renderCategoryManager(state.categories);
                 setTimeout(() => {
                     closeCategoryModal();
                 }, 1000);
@@ -927,8 +964,84 @@
                 showCategoryMessage(error.message, true);
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = "Create";
+                submitBtn.textContent = state.editingCategoryId ? "Save" : "Create";
             }
+        }
+
+        async function deleteCategory(categoryId) {
+            if (!confirm("Delete this category? This cannot be undone.")) return;
+
+            try {
+                await fetchJSON(`/api/categories/${categoryId}`, {
+                    method: "DELETE",
+                    headers: authHeaders(),
+                });
+
+                state.categories = state.categories.filter((cat) => cat.id !== categoryId);
+                renderCategoryOptions();
+                renderCategoryManager(state.categories);
+                if (els.expenseCategory.value === categoryId) {
+                    els.expenseCategory.value = "";
+                }
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function renderCategoryManager(categories) {
+            if (!categories || categories.length === 0) {
+                els.categoryManager.innerHTML = '<div class="muted">No categories yet. Add one to manage it here.</div>';
+                return;
+            }
+
+            els.categoryManager.innerHTML = `
+                <div style="overflow-x:auto;">
+                    <table class="data-table" style="width:100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Expenses</th>
+                                <th>Spend</th>
+                                <th>Icon</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${categories
+                    .map(
+                        (cat) => `
+                                <tr>
+                                    <td><span style="display:inline-flex; align-items:center; gap:8px;"><span style="width:12px; height:12px; border-radius:50%; background:${cat.color}; display:inline-block;"></span>${cat.name}</span></td>
+                                    <td>${cat.expenseCount || 0}</td>
+                                    <td>${fmtCurrency(cat.totalAmount || 0)}</td>
+                                    <td>${cat.icon || "—"}</td>
+                                    <td style="white-space:nowrap;">
+                                        <button class="secondary category-edit-btn" type="button" data-id="${cat.id}">Edit</button>
+                                        <button class="danger category-delete-btn" type="button" data-id="${cat.id}">Delete</button>
+                                    </td>
+                                </tr>
+                            `
+                    )
+                    .join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            els.categoryManager.querySelectorAll(".category-edit-btn").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const id = button.dataset.id;
+                    const category = state.categories.find((cat) => cat.id === id);
+                    if (category) openCategoryModal(category);
+                });
+            });
+
+            els.categoryManager.querySelectorAll(".category-delete-btn").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const id = button.dataset.id;
+                    if (id) deleteCategory(id);
+                });
+            });
         }
 
         function renderCategoryOptions() {

@@ -3,9 +3,16 @@ import { prisma } from "../index.js";
 
 const router = Router();
 
+function getAuthorizedUserId(req: Request) {
+  if (req.user?.userId) return req.user.userId;
+  if (req.query.userId) return String(req.query.userId);
+  if (req.body.userId) return String(req.body.userId);
+  return null;
+}
+
 // Middleware to validate user exists
 const validateUser = async (req: Request, res: Response, next: Function) => {
-  const userId = req.query.userId as string || req.body.userId;
+  const userId = getAuthorizedUserId(req);
   if (!userId) {
     return res.status(400).json({ error: "userId is required" });
   }
@@ -93,6 +100,10 @@ router.get("/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
+    if (req.user?.role !== "ADMIN" && category.userId !== req.user?.userId) {
+      return res.status(403).json({ error: "Forbidden: Cannot access this category" });
+    }
+
     res.json(category);
   } catch (error) {
     console.error("Error fetching category:", error);
@@ -104,7 +115,11 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.post("/", validateUser, async (req: Request, res: Response) => {
   try {
     const { name, description, color, icon } = req.body;
-    const userId = req.query.userId as string;
+    const userId = getAuthorizedUserId(req);
+
+    if (!userId) {
+      return res.status(400).json({ error: "Category userId is required" });
+    }
 
     if (!name) {
       return res.status(400).json({ error: "Category name is required" });
@@ -145,6 +160,18 @@ router.put("/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, description, color, icon } = req.body;
 
+    const existingCategory = await prisma.category.findUnique({
+      where: { id },
+    });
+
+    if (!existingCategory) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    if (req.user?.role !== "ADMIN" && existingCategory.userId !== req.user?.userId) {
+      return res.status(403).json({ error: "Forbidden: Cannot modify this category" });
+    }
+
     const category = await prisma.category.update({
       where: { id },
       data: {
@@ -169,6 +196,18 @@ router.put("/:id", async (req: Request, res: Response) => {
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const existingCategory = await prisma.category.findUnique({
+      where: { id },
+    });
+
+    if (!existingCategory) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    if (req.user?.role !== "ADMIN" && existingCategory.userId !== req.user?.userId) {
+      return res.status(403).json({ error: "Forbidden: Cannot delete this category" });
+    }
 
     await prisma.category.delete({
       where: { id },
